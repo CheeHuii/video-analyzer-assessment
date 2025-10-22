@@ -1,0 +1,67 @@
+syntax = "proto3";
+package genai.vision;
+
+import "common.proto";
+import "google/protobuf/timestamp.proto";
+
+option java_package = "genai.vision";
+option go_package = "genai/vision;vision";
+
+service VisionAgent {
+  rpc AnalyzeVideo(VideoAnalysisRequest) returns (VisionResult);
+  rpc DetectGraphs(VideoAnalysisRequest) returns (GraphDetectionResult);
+  // Optionally stream incremental frame analysis
+  rpc StreamAnalyze(VideoAnalysisRequest) returns (stream VisionChunk);
+}
+
+message VideoAnalysisRequest {
+  genai.common.TaskRequest task = 1;
+  int32 frame_sample_rate_ms = 2; // sample one frame per N ms
+  string parameters_json = 3;
+}
+
+message DetectedObject {
+  string label = 1;
+  double confidence = 2;
+  int32 xmin = 3;
+  int32 ymin = 4;
+  int32 xmax = 5;
+  int32 ymax = 6;
+  google.protobuf.Timestamp timestamp = 7;
+}
+
+message OCRText {
+  string text = 1;
+  double confidence = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  string language = 4;
+}
+
+message GraphCrop {
+  string image_path = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  string graph_type = 3; // e.g., "bar", "line", "scatter" or "unknown"
+}
+
+message VisionChunk {
+  string task_id = 1;
+  repeated DetectedObject objects = 2;
+  repeated OCRText ocr = 3;
+  repeated GraphCrop graphs = 4;
+}
+
+message VisionResult {
+  string task_id = 1;
+  repeated DetectedObject objects = 2;
+  repeated OCRText ocr = 3;
+  repeated GraphCrop graphs = 4;
+  string result_json_path = 5;
+  genai.common.TaskStatus status = 6;
+  string error = 7;
+}
+
+message GraphDetectionResult {
+  string task_id = 1;
+  repeated GraphCrop crops = 2;
+  string result_json_path = 3;
+}

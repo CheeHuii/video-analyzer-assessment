@@ -1,0 +1,66 @@
+syntax = "proto3";
+package genai.common;
+
+import "google/protobuf/timestamp.proto";
+
+option java_package = "genai.common";
+option go_package = "genai/common;common";
+
+enum AgentType {
+  AGENT_UNSPECIFIED = 0;
+  AGENT_TRANSCRIPTION = 1;
+  AGENT_VISION = 2;
+  AGENT_GENERATION = 3;
+  AGENT_CUSTOM = 100;
+}
+
+enum TaskStatus {
+  TASK_UNKNOWN = 0;
+  TASK_QUEUED = 1;
+  TASK_RUNNING = 2;
+  TASK_SUCCEEDED = 3;
+  TASK_FAILED = 4;
+  TASK_CANCELLED = 5;
+}
+
+message AgentInfo {
+  string id = 1;           // unique agent id (uuid)
+  string name = 2;
+  AgentType type = 3;
+  string version = 4;
+  string capabilities = 5; // comma-separated or JSON describing models supported
+  google.protobuf.Timestamp last_seen = 6;
+}
+
+message FileRef {
+  string uri = 1;      // local filesystem path (app should validate)
+  string mime = 2;
+  int64 size_bytes = 3;
+}
+
+message TaskRequest {
+  string task_id = 1;
+  string agent_type_hint = 2; // optional: "transcription", "vision", "generation"
+  FileRef input = 3;          // pointer to input file or artifact
+  string parameters_json = 4; // optional params (model, thresholds) as JSON string
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message ProgressUpdate {
+  string task_id = 1;
+  TaskStatus status = 2;
+  int32 percent = 3;
+  string message = 4; // human-readable status
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message TaskResult {
+  string task_id = 1;
+  bool success = 2;
+  string output_uri = 3;      // file path for generated artifact(s) or JSON blob path
+  string result_json = 4;     // textual result or metadata (e.g., transcript JSON)
+  string error_message = 5;
+  google.protobuf.Timestamp completed_at = 6;
+}
+
+message Empty {}

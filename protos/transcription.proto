@@ -1,0 +1,44 @@
+syntax = "proto3";
+package genai.transcription;
+
+import "common.proto";
+import "google/protobuf/timestamp.proto";
+
+option java_package = "genai.transcription";
+option go_package = "genai/transcription;transcription";
+
+service TranscriptionAgent {
+  // One-shot transcription (blocking until done)
+  rpc Transcribe(TaskTranscribeRequest) returns (TranscriptionResult);
+
+  // Streaming transcription: client sends audio frames or a single TaskRequest and receives a stream of partial results
+  rpc StreamTranscribe(StreamTranscribeRequest) returns (stream TranscriptionChunk);
+}
+
+message TaskTranscribeRequest {
+  genai.common.TaskRequest task = 1;
+}
+
+message StreamTranscribeRequest {
+  genai.common.TaskRequest task = 1;
+  // optional: when sending raw audio frames in chunks, use bytes payload
+  bytes audio_chunk = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+message TranscriptionChunk {
+  string task_id = 1;
+  string text = 2;
+  double confidence = 3;
+  bool is_final = 4;
+  google.protobuf.Timestamp start_time = 5;
+  google.protobuf.Timestamp end_time = 6;
+}
+
+message TranscriptionResult {
+  string task_id = 1;
+  repeated TranscriptionChunk segments = 2;
+  string transcript_json_path = 3; // file path to detailed transcript JSON
+  genai.common.TaskStatus status = 4;
+  string error = 5;
+}

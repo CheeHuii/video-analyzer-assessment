@@ -1,0 +1,54 @@
+syntax = "proto3";
+import "google/protobuf/empty.proto";
+package genai.manager;
+
+import "common.proto";
+
+option java_package = "genai.manager";
+option go_package = "genai/manager;manager";
+
+service AgentManager {
+  // Agents call this to register themselves with MCP
+  rpc RegisterAgent(genai.common.AgentInfo) returns (RegisterResponse);
+
+  // Agents call periodically to keep alive; server responds with any commands
+  rpc Heartbeat(stream HeartbeatRequest) returns (stream HeartbeatResponse);
+
+  // Submit a task to a matched agent (MCP can route to correct agent)
+  rpc AssignTask(genai.common.TaskRequest) returns (AssignResponse);
+
+  // Query agent list & statuses
+  rpc ListAgents(google.protobuf.Empty) returns (AgentList);
+
+  // Stream task progress updates (server -> client)
+  rpc StreamProgress(TaskProgressRequest) returns (stream genai.common.ProgressUpdate);
+}
+
+message RegisterResponse {
+  bool ok = 1;
+  string assigned_id = 2;
+  string message = 3;
+}
+
+message HeartbeatRequest {
+  genai.common.AgentInfo agent = 1;
+}
+
+message HeartbeatResponse {
+  repeated string commands = 1; // e.g., "run-task:<task_id>"
+}
+
+message AssignResponse {
+  bool accepted = 1;
+  string assigned_agent_id = 2;
+  string message = 3;
+}
+
+message AgentList {
+  repeated genai.common.AgentInfo agents = 1;
+}
+
+message TaskProgressRequest {
+  string task_id = 1;
+  string agent_id = 2;
+}

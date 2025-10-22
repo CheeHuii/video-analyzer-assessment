@@ -1,0 +1,50 @@
+syntax = "proto3";
+package genai.generation;
+
+import "common.proto";
+import "google/protobuf/timestamp.proto";
+
+option java_package = "genai.generation";
+option go_package = "genai/generation;generation";
+
+service GenerationAgent {
+  // Generate a PDF summary
+  rpc GeneratePDF(PDFRequest) returns (GenerationResult);
+
+  // Generate PowerPoint
+  rpc GeneratePPTX(PPTXRequest) returns (GenerationResult);
+
+  // Generate short textual summary or answer
+  rpc GenerateSummary(SummaryRequest) returns (SummaryResponse);
+}
+
+message PDFRequest {
+  genai.common.TaskRequest task = 1;
+  string template = 2; // optional template ID or JSON
+}
+
+message PPTXRequest {
+  genai.common.TaskRequest task = 1;
+  int32 max_slides = 2;
+  string template = 3;
+}
+
+message GenerationResult {
+  string task_id = 1;
+  bool success = 2;
+  genai.common.FileRef output = 3;     // path to generated file
+  string metadata_json = 4;            // optional metadata path
+  string error = 5;
+}
+
+message SummaryRequest {
+  genai.common.TaskRequest task = 1;
+  string prompt = 2; // e.g., "Summarize key points in 5 bullets"
+  int32 max_tokens = 3;
+}
+
+message SummaryResponse {
+  string task_id = 1;
+  string summary_text = 2;
+  string result_json = 3; // path to json storing the detailed answer
+}
