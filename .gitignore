@@ -6,6 +6,7 @@ venv/
 node_modules/
 dist/
 build/
+data/videos
 
 .DS_Store
 Thumbs.db
@@ -15,3 +16,4 @@ Thumbs.db
 *.zip
 *.pdf
 *.pptx
+*.mp4
