@@ -24,7 +24,6 @@ Runs fully offline using OpenVINO-optimized local models and MCP agents.
 install ffmpeg and install to system path
 
 # Backend
-cd backend
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
