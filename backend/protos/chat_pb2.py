@@ -22,28 +22,28 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-import common_pb2 as common__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nchat.proto\x12\ngenai.chat\x1a\x0c\x63ommon.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa1\x01\n\x0b\x43hatMessage\x12\x12\n\nmessage_id\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x0c\n\x04text\x18\x03 \x01(\t\x12\x13\n\x0b\x61ttachments\x18\x04 \x03(\t\x12.\n\ncreated_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x1a\n\x12referenced_task_id\x18\x06 \x01(\t\"\xda\x01\n\x0c\x43hatResponse\x12\x12\n\nmessage_id\x18\x01 \x01(\t\x12\x13\n\x0bin_reply_to\x18\x02 \x01(\t\x12\x0c\n\x04text\x18\x03 \x01(\t\x12\x13\n\x0b\x61ttachments\x18\x04 \x03(\t\x12.\n\ncreated_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\nconfidence\x18\x06 \x01(\x01\x12\x1b\n\x13needs_clarification\x18\x07 \x01(\x08\x12\x1d\n\x15\x63larification_options\x18\x08 \x03(\t\"@\n\x07\x43hatAck\x12\n\n\x02ok\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x18\n\x10server_timestamp\x18\x03 \x01(\t\"B\n\x0eHistoryRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x0c\n\x04page\x18\x02 \x01(\x05\x12\x11\n\tpage_size\x18\x03 \x01(\x05\"K\n\x0fHistoryResponse\x12)\n\x08messages\x18\x01 \x03(\x0b\x32\x17.genai.chat.ChatMessage\x12\r\n\x05total\x18\x02 \x01(\x05\x32\xd6\x01\n\x0b\x43hatService\x12\x43\n\nStreamChat\x12\x17.genai.chat.ChatMessage\x1a\x18.genai.chat.ChatResponse(\x01\x30\x01\x12;\n\x0bSendMessage\x12\x17.genai.chat.ChatMessage\x1a\x13.genai.chat.ChatAck\x12\x45\n\nGetHistory\x12\x1a.genai.chat.HistoryRequest\x1a\x1b.genai.chat.HistoryResponseB\x1d\n\ngenai.chatZ\x0fgenai/chat;chatb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nchat.proto\x12\x12videoanalyzer.chat\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbd\x01\n\x07Message\x12\n\n\x02id\x18\x01 \x01(\t\x12\x17\n\x0f\x63onversation_id\x18\x02 \x01(\t\x12\x0e\n\x06sender\x18\x03 \x01(\t\x12\x0c\n\x04text\x18\x04 \x01(\t\x12\x12\n\ncreated_at\x18\x05 \x01(\x03\x12\x12\n\nconfidence\x18\x06 \x01(\x01\x12\x1b\n\x13needs_clarification\x18\x07 \x01(\x08\x12\x13\n\x0b\x61ttachments\x18\x08 \x03(\t\x12\x15\n\rmetadata_json\x18\t \x01(\t\"u\n\x12SendMessageRequest\x12\x17\n\x0f\x63onversation_id\x18\x01 \x01(\t\x12,\n\x07message\x18\x02 \x01(\x0b\x32\x1b.videoanalyzer.chat.Message\x12\x18\n\x10stream_responses\x18\x03 \x01(\x08\"J\n\x13SendMessageResponse\x12\x33\n\x0estored_message\x18\x01 \x01(\x0b\x32\x1b.videoanalyzer.chat.Message\"K\n\x11GetHistoryRequest\x12\x17\n\x0f\x63onversation_id\x18\x01 \x01(\t\x12\r\n\x05limit\x18\x02 \x01(\x05\x12\x0e\n\x06offset\x18\x03 \x01(\x05\"C\n\x12GetHistoryResponse\x12-\n\x08messages\x18\x01 \x03(\x0b\x32\x1b.videoanalyzer.chat.Message\"q\n\x0eStreamResponse\x12\x16\n\x0cpartial_text\x18\x01 \x01(\tH\x00\x12.\n\x07message\x18\x02 \x01(\x0b\x32\x1b.videoanalyzer.chat.MessageH\x00\x12\x0c\n\x04\x64one\x18\x03 \x01(\x08\x42\t\n\x07payload2\xab\x02\n\x0b\x43hatService\x12^\n\x0bSendMessage\x12&.videoanalyzer.chat.SendMessageRequest\x1a\'.videoanalyzer.chat.SendMessageResponse\x12[\n\nGetHistory\x12%.videoanalyzer.chat.GetHistoryRequest\x1a&.videoanalyzer.chat.GetHistoryResponse\x12_\n\x0fStreamResponses\x12&.videoanalyzer.chat.SendMessageRequest\x1a\".videoanalyzer.chat.StreamResponse0\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'chat_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
-  _globals['DESCRIPTOR']._loaded_options = None
-  _globals['DESCRIPTOR']._serialized_options = b'\n\ngenai.chatZ\017genai/chat;chat'
-  _globals['_CHATMESSAGE']._serialized_start=74
-  _globals['_CHATMESSAGE']._serialized_end=235
-  _globals['_CHATRESPONSE']._serialized_start=238
-  _globals['_CHATRESPONSE']._serialized_end=456
-  _globals['_CHATACK']._serialized_start=458
-  _globals['_CHATACK']._serialized_end=522
-  _globals['_HISTORYREQUEST']._serialized_start=524
-  _globals['_HISTORYREQUEST']._serialized_end=590
-  _globals['_HISTORYRESPONSE']._serialized_start=592
-  _globals['_HISTORYRESPONSE']._serialized_end=667
-  _globals['_CHATSERVICE']._serialized_start=670
-  _globals['_CHATSERVICE']._serialized_end=884
+  DESCRIPTOR._loaded_options = None
+  _globals['_MESSAGE']._serialized_start=68
+  _globals['_MESSAGE']._serialized_end=257
+  _globals['_SENDMESSAGEREQUEST']._serialized_start=259
+  _globals['_SENDMESSAGEREQUEST']._serialized_end=376
+  _globals['_SENDMESSAGERESPONSE']._serialized_start=378
+  _globals['_SENDMESSAGERESPONSE']._serialized_end=452
+  _globals['_GETHISTORYREQUEST']._serialized_start=454
+  _globals['_GETHISTORYREQUEST']._serialized_end=529
+  _globals['_GETHISTORYRESPONSE']._serialized_start=531
+  _globals['_GETHISTORYRESPONSE']._serialized_end=598
+  _globals['_STREAMRESPONSE']._serialized_start=600
+  _globals['_STREAMRESPONSE']._serialized_end=713
+  _globals['_CHATSERVICE']._serialized_start=716
+  _globals['_CHATSERVICE']._serialized_end=1015
 # @@protoc_insertion_point(module_scope)
