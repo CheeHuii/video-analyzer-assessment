@@ -83,33 +83,33 @@ def extract_frames(video_path: str, frames_dir: str, sample_ms: int = 500, scale
     run_cmd(cmd)
 
 
-def detect_scenes_pyscenedetect(video_path: str, threshold: float = 30.0) -> List[Dict[str, Any]]:
-    """
-    Use PySceneDetect ContentDetector to detect boundaries.
-    Returns list of scenes as dicts: {start_time_s, end_time_s}
-    threshold: sensitivity parameter (higher => fewer cuts)
-    """
-    if not PYSCT_AVAILABLE:
-        raise RuntimeError("PySceneDetect is not installed. pip install scenedetect")
+# def detect_scenes_pyscenedetect(video_path: str, threshold: float = 30.0) -> List[Dict[str, Any]]:
+#     """
+#     Use PySceneDetect ContentDetector to detect boundaries.
+#     Returns list of scenes as dicts: {start_time_s, end_time_s}
+#     threshold: sensitivity parameter (higher => fewer cuts)
+#     """
+#     if not PYSCT_AVAILABLE:
+#         raise RuntimeError("PySceneDetect is not installed. pip install scenedetect")
 
-    video_manager = VideoManager([video_path])
-    scene_manager = SceneManager()
-    scene_manager.add_detector(ContentDetector(threshold=threshold))
-    base_timecode = video_manager.get_base_timecode()
+#     video_manager = VideoManager([video_path])
+#     scene_manager = SceneManager()
+#     scene_manager.add_detector(ContentDetector(threshold=threshold))
+#     base_timecode = video_manager.get_base_timecode()
 
-    try:
-        video_manager.start()
-        scene_manager.detect_scenes(frame_source=video_manager)
-        scene_list = scene_manager.get_scene_list(base_timecode)
-        scenes = []
-        for (start, end) in scene_list:
-            scenes.append({
-                "start_time_s": start.get_seconds(),
-                "end_time_s": end.get_seconds()
-            })
-        return scenes
-    finally:
-        video_manager.release()
+#     try:
+#         video_manager.start()
+#         scene_manager.detect_scenes(frame_source=video_manager)
+#         scene_list = scene_manager.get_scene_list(base_timecode)
+#         scenes = []
+#         for (start, end) in scene_list:
+#             scenes.append({
+#                 "start_time_s": start.get_seconds(),
+#                 "end_time_s": end.get_seconds()
+#             })
+#         return scenes
+#     finally:
+#         video_manager.release()
 
 
 def ingest_video(src_path: str, video_id: Optional[str] = None, sample_ms: int = 500, do_scene_detect: bool = False) -> Dict[str, Any]:
@@ -167,16 +167,16 @@ def ingest_video(src_path: str, video_id: Optional[str] = None, sample_ms: int =
     extract_frames(str(raw_dest), str(frames_dir), sample_ms=sample_ms, scale=None)
 
     # optional scene detection
-    scenes = []
-    if do_scene_detect:
-        if PYSCT_AVAILABLE:
-            try:
-                scenes = detect_scenes_pyscenedetect(str(raw_dest))
-            except Exception as e:
-                print("Scene detection (PySceneDetect) failed:", e)
-                scenes = []
-        else:
-            print("PySceneDetect not installed; skipping scene detection. Install with: pip install scenedetect")
+    # scenes = []
+    # if do_scene_detect:
+    #     if PYSCT_AVAILABLE:
+    #         try:
+    #             scenes = detect_scenes_pyscenedetect(str(raw_dest))
+    #         except Exception as e:
+    #             print("Scene detection (PySceneDetect) failed:", e)
+    #             scenes = []
+    #     else:
+    #         print("PySceneDetect not installed; skipping scene detection. Install with: pip install scenedetect")
 
     # build meta
     meta_out = {
@@ -194,7 +194,7 @@ def ingest_video(src_path: str, video_id: Optional[str] = None, sample_ms: int =
         "size_bytes": int(format_info.get("size", 0)) if format_info.get("size") else None,
         "video_stream": video_stream,
         "audio_stream": audio_stream,
-        "scenes": scenes,
+        # "scenes": scenes,
     }
 
     # write meta.json
