@@ -1,57 +1,52 @@
 syntax = "proto3";
-package genai.chat;
 
-import "common.proto";
+package videoanalyzer.chat;
+
 import "google/protobuf/timestamp.proto";
 
-option java_package = "genai.chat";
-option go_package = "genai/chat;chat";
+message Message {
+  string id = 1;                // uuid
+  string conversation_id = 2;   // allow multiple chats
+  string sender = 3;            // "user" or "system" or "agent"
+  string text = 4;
+  int64 created_at = 5;         // unix epoch ms
+  double confidence = 6;        // optional, 0..1
+  bool needs_clarification = 7; // human-in-loop flag
+  repeated string attachments = 8; // paths or IDs
+  string metadata_json = 9;     // optional extra
+}
+
+message SendMessageRequest {
+  string conversation_id = 1;
+  Message message = 2;
+  bool stream_responses = 3; // if true, server will also stream agent responses
+}
+
+message SendMessageResponse {
+  Message stored_message = 1;
+}
+
+message GetHistoryRequest {
+  string conversation_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message GetHistoryResponse {
+  repeated Message messages = 1;
+}
+
+message StreamResponse {
+  // server-streaming element; could be partial text or completed message
+  oneof payload {
+    string partial_text = 1; // partial token/string while model generates
+    Message message = 2;     // final stored message
+  }
+  bool done = 3; // true when stream finished
+}
 
 service ChatService {
-  // Bi-directional stream: client sends messages, server replies with streamed responses
-  rpc StreamChat(stream ChatMessage) returns (stream ChatResponse);
-
-  // Non-streaming simple send
-  rpc SendMessage(ChatMessage) returns (ChatAck);
-
-  // Retrieve history (pagination)
-  rpc GetHistory(HistoryRequest) returns (HistoryResponse);
-}
-
-message ChatMessage {
-  string message_id = 1;
-  string user_id = 2;
-  string text = 3;
-  repeated string attachments = 4; // file paths
-  google.protobuf.Timestamp created_at = 5;
-  // optional: if the message references a task
-  string referenced_task_id = 6;
-}
-
-message ChatResponse {
-  string message_id = 1; // id of assistant response
-  string in_reply_to = 2; // original message id
-  string text = 3;
-  repeated string attachments = 4; // e.g., /artifacts/summary.pdf
-  google.protobuf.Timestamp created_at = 5;
-  double confidence = 6; // optional confidence for assertions
-  bool needs_clarification = 7;
-  repeated string clarification_options = 8;
-}
-
-message ChatAck {
-  bool ok = 1;
-  string message = 2;
-  string server_timestamp = 3;
-}
-
-message HistoryRequest {
-  string user_id = 1;
-  int32 page = 2;
-  int32 page_size = 3;
-}
-
-message HistoryResponse {
-  repeated ChatMessage messages = 1;
-  int32 total = 2;
+  rpc SendMessage (SendMessageRequest) returns (SendMessageResponse);
+  rpc GetHistory (GetHistoryRequest) returns (GetHistoryResponse);
+  rpc StreamResponses (SendMessageRequest) returns (stream StreamResponse);
 }

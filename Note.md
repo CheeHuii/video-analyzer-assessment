@@ -5,3 +5,6 @@ Due to local constraint, no good enough model can be used, however, improved fro
 Enhancement:
 yolov8n used for vision agent, dont do good in graph detection, have better specified model to do it.
 to add license, which is not done for now
+I could create a common resource pool for db instance control
+
+Get a more reliable datastore
