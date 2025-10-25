@@ -22,6 +22,8 @@ Runs fully offline using OpenVINO-optimized local models and MCP agents.
 ```bash
 # Window
 install ffmpeg and install to system path
+install protoc
+download model to local with model_download.py
 
 # Backend
 cd backend
@@ -32,6 +34,9 @@ python main.py
 
 # Frontend
 cd ../frontend
+cd src-tauri
+cargo build
+cd ..
 npm run tauri dev
 
 

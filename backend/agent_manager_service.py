@@ -207,7 +207,7 @@ class MCPServer(mgr_grpc.AgentManagerServicer):
             await q.put(update)
 
 
-async def serve_async(host="[::]", port=50051):
+async def serve_async(host="[::]", port=50052):
     server = grpc.aio.server()
     mcp = MCPServer()
     mgr_grpc.add_AgentManagerServicer_to_server(mcp, server)
