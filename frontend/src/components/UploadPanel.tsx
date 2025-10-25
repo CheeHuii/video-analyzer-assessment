@@ -18,7 +18,15 @@ export default function UploadPanel({ convId }: Props) {
 
     // read file as base64
     const data = await file.arrayBuffer();
-    const b64 = btoa(String.fromCharCode(...new Uint8Array(data)));
+    // Convert to base64 in chunks to avoid stack overflow with large files
+    const bytes = new Uint8Array(data);
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+      binary += String.fromCharCode(...chunk);
+    }
+    const b64 = btoa(binary);
     setProgress(30);
 
     try {
