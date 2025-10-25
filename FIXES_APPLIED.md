@@ -13,7 +13,7 @@ ChatWindow.tsx:62 Uncaught (in promise) invalid args `conversationId` for comman
 ```
 
 **Root Cause:**
-The TypeScript/JavaScript code was calling Tauri commands using snake_case parameter names (`conversation_id`, `base64_data`), but Tauri v2 automatically converts Rust function parameters from snake_case to camelCase for JavaScript interoperability. The Rust commands expected to receive camelCase parameters from JavaScript.
+The TypeScript/JavaScript code was calling Tauri commands using snake_case parameter names (`conversation_id`, `base64_data`), but Tauri v2 automatically converts between JavaScript camelCase and Rust snake_case for interoperability. JavaScript code must use camelCase when invoking Tauri commands, even though the Rust functions use snake_case internally. The mismatch occurred because the JavaScript was using snake_case instead of camelCase.
 
 **Fix Applied:**
 Updated `frontend/src/grpcClient.ts` to use camelCase parameter names:
@@ -112,11 +112,11 @@ This approach:
 ## Technical Details
 
 ### Tauri v2 Parameter Naming Convention
-Tauri v2 (currently using v2.9.1) automatically converts Rust function parameter names for JavaScript:
-- Rust: `snake_case` (e.g., `conversation_id: String`)
-- JavaScript/TypeScript: `camelCase` (e.g., `conversationId`)
+Tauri v2 (currently using v2.9.1) automatically converts parameter names between JavaScript and Rust:
+- JavaScript/TypeScript: `camelCase` (e.g., `conversationId`) - required when invoking commands
+- Rust: `snake_case` (e.g., `conversation_id: String`) - used in function definitions
 
-This is done automatically by the Tauri framework to follow idiomatic naming conventions in each language.
+The framework handles the conversion transparently, allowing each language to use its idiomatic naming convention. JavaScript developers call commands with camelCase parameters, and Tauri converts them to snake_case for the Rust function.
 
 ### JavaScript Function Argument Limits
 JavaScript engines have a maximum limit on the number of arguments a function can accept:
@@ -124,7 +124,7 @@ JavaScript engines have a maximum limit on the number of arguments a function ca
 - SpiderMonkey (Firefox): ~500,000 arguments
 - JavaScriptCore (Safari): ~65,000 arguments
 
-When spreading a large array (`...array`), each element becomes an argument. A 1MB file would create 1,048,576 arguments, far exceeding these limits. The chunked approach ensures we never exceed ~8,192 arguments per call.
+When spreading a large array (`...array`), each element becomes an argument. While the exact limit varies by engine, attempting to spread a very large array (such as a multi-megabyte video file converted to a Uint8Array) into `String.fromCharCode()` will exceed these limits and cause a "Maximum call stack size exceeded" error. The chunked approach ensures we never exceed these limits by processing data in small, manageable segments.
 
 ## Files Modified
 
