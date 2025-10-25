@@ -6,8 +6,6 @@ import HistoryPanel from "./components/HistoryPanel";
 import ArtifactViewer from "./components/ArtifactViewer";
 import { getHistory } from "./grpcClient";
 
-const BACKEND_ADDR = "http://[::1]:50051"; // the python backend address
-
 export default function App() {
   const [convId, setConvId] = useState("default");
   const [history, setHistory] = useState<any[]>([]);
@@ -15,7 +13,7 @@ export default function App() {
   useEffect(() => {
     async function load() {
       try {
-        const resp = await getHistory(BACKEND_ADDR, convId);
+        const resp = await getHistory(convId);
         setHistory(resp.messages ?? []);
       } catch (e) {
         console.error("getHistory failed", e);
@@ -33,8 +31,8 @@ export default function App() {
       </aside>
 
       <main className="flex-1 p-4 flex flex-col">
-        <UploadPanel convId={convId} backendAddr={BACKEND_ADDR} />
-        <ChatWindow convId={convId} initialHistory={history} backendAddr={BACKEND_ADDR} />
+        <UploadPanel convId={convId} />
+        <ChatWindow convId={convId} initialHistory={history} />
       </main>
     </div>
   );

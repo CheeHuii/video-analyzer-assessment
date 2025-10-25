@@ -8,8 +8,12 @@ import sys
 import json
 import argparse
 import asyncio
-import grpc
+from pathlib import Path
 
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+import grpc
 from backend.protos import chat_pb2
 from backend.protos import chat_pb2_grpc
 
