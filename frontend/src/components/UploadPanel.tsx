@@ -4,10 +4,9 @@ import { saveUploadedFile, sendMessageAndStream } from "../grpcClient";
 
 type Props = {
   convId: string;
-  backendAddr: string;
 };
 
-export default function UploadPanel({ convId, backendAddr }: Props) {
+export default function UploadPanel({ convId }: Props) {
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
 
@@ -26,9 +25,9 @@ export default function UploadPanel({ convId, backendAddr }: Props) {
       const resp = await saveUploadedFile(b64, file.name);
       setProgress(80);
       // instruct backend to process file via chat: e.g. "Transcribe <path>"
-      const text = `Transcribe the video at ${resp.path}`;
+      const text = `Analyze this video: ${resp.path}`;
       // stream responses directly to chat for immediate feedback
-      await sendMessageAndStream(backendAddr, convId, "user", text, chunk => {
+      await sendMessageAndStream(convId, "user", text, chunk => {
         // frontend will get stream events via grpcClient's onChunk
         // but here we don't pass handler; instead ChatWindow also listens to events globally
       });

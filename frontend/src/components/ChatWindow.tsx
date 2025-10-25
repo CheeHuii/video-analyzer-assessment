@@ -6,10 +6,9 @@ import { listen } from "@tauri-apps/api/event";
 type Props = {
   convId: string;
   initialHistory: any[];
-  backendAddr: string;
 };
 
-export default function ChatWindow({ convId, initialHistory, backendAddr }: Props) {
+export default function ChatWindow({ convId, initialHistory }: Props) {
   const [messages, setMessages] = useState<any[]>(initialHistory || []);
   const [input, setInput] = useState("");
 
@@ -58,7 +57,7 @@ export default function ChatWindow({ convId, initialHistory, backendAddr }: Prop
     const text = input;
     setInput("");
     // start server streaming via Tauri
-    await sendMessageAndStream(backendAddr, convId, "user", text);
+    await sendMessageAndStream(convId, "user", text);
     // actual agent messages will arrive via stream_chunk events
   }
 

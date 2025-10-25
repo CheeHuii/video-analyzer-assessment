@@ -35,7 +35,7 @@ pub async fn send_message_and_stream(
     sender: String,
     text: String,
 ) -> Result<(), String> {
-    let addr = BACKEND_ADDR.lock().unwrap().clone();
+    let addr = "localhost:50051".to_string();  // Chat service address
     
     // Use tokio::process::Command instead of std::process::Command
     use tokio::process::Command as TokioCommand;
@@ -67,7 +67,8 @@ pub async fn send_message_and_stream(
 
 /// Fetch chat history via gRPC
 #[command]
-pub async fn get_history(backend_addr: String, conversation_id: String) -> Result<String, String> {
+pub async fn get_history(conversation_id: String) -> Result<String, String> {
+    let backend_addr = "localhost:50051".to_string();  // Chat service address
     let output = Command::new("python")
         .arg("backend/grpc_client_get_history.py")
         .arg("--addr").arg(backend_addr)
