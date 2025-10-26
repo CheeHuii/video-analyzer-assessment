@@ -1,63 +1,78 @@
 """
 Local visual analysis utilities:
-- Object detection (OpenVINO + YOLOv8 ONNX)
-- OCR (EasyOCR)
+- Object detection (ONNXRuntime + YOLOv8 ONNX; OpenVINO optional)
+- OCR (EasyOCR, optional)
 - Simple graph/plot detection
 """
 
 import cv2
 import numpy as np
-import easyocr
-from openvino.runtime import Core
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Tuple, Any
 import json
+import onnxruntime as ort
 
 # ---------- Object Detection ----------
-def load_openvino_yolo(model_path: str):
-    ie = Core()
-    available_devices = ie.available_devices
+def load_onnxruntime_yolo(model_path: str) -> Tuple[ort.InferenceSession, str]:
+    """Load YOLOv8 ONNX model via ONNXRuntime (CPU). Returns session and input name."""
+    sess_opts = ort.SessionOptions()
+    sess = ort.InferenceSession(model_path, sess_options=sess_opts, providers=["CPUExecutionProvider"]) 
+    input_name = sess.get_inputs()[0].name
+    return sess, input_name
 
-    # Use GPU if available, otherwise CPU
-    target_device = "AUTO" if "GPU" in available_devices else "CPU"
-    compiled_model = ie.compile_model(model_path, target_device)
-
-    input_layer = compiled_model.input(0)
-    output_layer = compiled_model.output(0)
-    return compiled_model, input_layer, output_layer
-
-def detect_objects_yolo(compiled_model, input_layer, output_layer, frame: np.ndarray, conf_thresh=0.4):
-    # Resize + normalize
+def detect_objects_yolov8_onnx(session: ort.InferenceSession, input_name: str, frame: np.ndarray, conf_thresh=0.35) -> List[Dict[str, Any]]:
+    """Basic YOLOv8 ONNX postprocess for common (1,84,8400) output layout.
+    This is a simplified decoder: not perfect, but sufficient to produce objects.json.
+    """
+    ih, iw = frame.shape[:2]
     img = cv2.resize(frame, (640, 640))
-    img = img.transpose(2, 0, 1)[None] / 255.0
-    pred = compiled_model([img])[output_layer]
-    pred = np.squeeze(pred)
+    blob = img.transpose(2, 0, 1)[None].astype(np.float32) / 255.0
+    outputs = session.run(None, {input_name: blob})
+    if not outputs:
+        return []
+    out = outputs[0]
+    # Expect (1,84,8400) -> (C, N)
+    if out.ndim == 3:
+        out = out[0]
+    # out shape: (84, 8400)
+    if out.shape[0] < 6:
+        return []
+    boxes = out[0:4, :]  # xywh
+    scores = out[4:, :]
+    class_ids = np.argmax(scores, axis=0)
+    confs = scores[class_ids, np.arange(scores.shape[1])]
+    # filter by confidence
+    keep = confs >= conf_thresh
+    boxes = boxes[:, keep]
+    confs = confs[keep]
+    class_ids = class_ids[keep]
 
-    detections = []
-    for det in pred:
-        conf = det[4]
-        if conf < conf_thresh:
-            continue
-        cls = int(det[5])
-        x, y, w, h = det[:4]
-        detections.append({
-            "class_id": cls,
-            "confidence": float(conf),
+    # scale boxes to 640x640 (already); no letterbox correction here
+    dets = []
+    for i in range(boxes.shape[1]):
+        x, y, w, h = boxes[:, i]
+        dets.append({
+            "class_id": int(class_ids[i]),
+            "confidence": float(confs[i]),
             "bbox": [float(x), float(y), float(w), float(h)]
         })
-    return detections
+    return dets
 
 # ---------- OCR ----------
 _reader = None
 def ocr_text(frame: np.ndarray):
-    global _reader
-    if _reader is None:
-        _reader = easyocr.Reader(['en'], gpu=False)
-    result = _reader.readtext(frame)
-    texts = []
-    for (bbox, text, conf) in result:
-        texts.append({"text": text, "confidence": float(conf), "bbox": bbox})
-    return texts
+    try:
+        global _reader
+        if _reader is None:
+            import easyocr  # lazy import
+            _reader = easyocr.Reader(['en'], gpu=False)
+        result = _reader.readtext(frame)
+        texts = []
+        for (bbox, text, conf) in result:
+            texts.append({"text": text, "confidence": float(conf), "bbox": bbox})
+        return texts
+    except Exception:
+        return []
 
 # ---------- Graph / Chart Detection ----------
 def detect_graphs(frame: np.ndarray):
@@ -90,14 +105,17 @@ def intersection_over_union(b1, b2):
 
 # ---------- Main entry ----------
 def analyze_frame(frame_path, timestamp, model_info, output_dir, prev_graphs=None):
-    compiled_model, input_layer, output_layer = model_info
+    session, input_name = model_info
 
     frame = cv2.imread(frame_path)
-    objects = detect_objects_yolo(compiled_model, input_layer, output_layer, frame)
+    objects = []
+    try:
+        objects = detect_objects_yolov8_onnx(session, input_name, frame)
+    except Exception:
+        objects = []
     # texts = ocr_text(frame)
     texts = []
-    # graphs = detect_graphs(frame)
-    graphs = []
+    graphs = detect_graphs(frame)
 
     graphs_out = []
     for i, g in enumerate(graphs):
@@ -141,7 +159,8 @@ def _to_serializable(obj):
 
 def process_video_frames(frames_dir: str, model_path: str, out_dir: str):
     frames = sorted(list(Path(frames_dir).glob("*.jpg")) + list(Path(frames_dir).glob("*.png")))
-    model_info = load_openvino_yolo(model_path)
+    # Prefer ONNXRuntime loading for portability
+    model_info = load_onnxruntime_yolo(model_path)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
