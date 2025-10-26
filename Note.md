@@ -6,5 +6,6 @@ Enhancement:
 yolov8n used for vision agent, dont do good in graph detection, have better specified model to do it.
 to add license, which is not done for now
 I could create a common resource pool for db instance control
+Limit file format that is available to upload.
 
 Get a more reliable datastore
