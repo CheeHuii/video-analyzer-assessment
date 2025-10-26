@@ -27,21 +27,30 @@ class VisionAgent(AgentBase):
         await self._process_task(task_id, input_dir)
 
     async def _process_task(self, task_id: str, input_dir: str):
-        frames_dir = Path(input_dir) / "frames"
-        out_dir = Path(input_dir)
-        if not frames_dir.exists():
-            logger.error(f"No frames directory found at {frames_dir}")
-            self._cap_token = f"result:{task_id}:ERROR_NO_FRAMES"
-            return
+        try:
+            base_dir = Path(input_dir)
+            # If a file (e.g., meta.json) was passed, use its parent dir
+            if base_dir.is_file():
+                base_dir = base_dir.parent
+            frames_dir = base_dir / "frames"
+            out_dir = base_dir
+            if not frames_dir.exists():
+                logger.error(f"No frames directory found at {frames_dir}")
+                self._cap_token = f"result:{task_id}:ERROR_NO_FRAMES"
+                return
 
-        self._cap_token = f"progress:{task_id}:10"
-        await asyncio.sleep(0.5)
+            self._cap_token = f"progress:{task_id}:10"
+            await asyncio.sleep(0.2)
 
-        loop = asyncio.get_running_loop()
-        frame_count = await loop.run_in_executor(None,
-            lambda: process_video_frames(str(frames_dir), self.model_path, str(out_dir / "graphs")))
+            loop = asyncio.get_running_loop()
+            frame_count = await loop.run_in_executor(None,
+                lambda: process_video_frames(str(frames_dir), self.model_path, str(out_dir / "graphs")))
 
-        self._cap_token = f"result:{task_id}:{str(out_dir)}"
-        logger.info(f"Vision analysis done for {frame_count} frames at {out_dir}")
-        await asyncio.sleep(1)
-        self._cap_token = ""
+            self._cap_token = f"result:{task_id}:{str(out_dir)}"
+            logger.info(f"Vision analysis done for {frame_count} frames at {out_dir}")
+        except Exception as e:
+            logger.exception(f"VisionAgent error: {e}")
+            self._cap_token = f"result:{task_id}:ERROR_VISION:{e}"
+        finally:
+            await asyncio.sleep(1)
+            self._cap_token = ""

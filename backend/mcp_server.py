@@ -192,7 +192,8 @@ class MCPServer(mgr_grpc.AgentManagerServicer):
                 return
             t["status"] = common_pb.TaskStatus.TASK_SUCCEEDED if success else common_pb.TaskStatus.TASK_FAILED
             t["percent"] = 100
-            t["message"] = "Completed" if success else "Failed"
+            # Include output_uri in message for clients to consume without changing proto
+            t["message"] = (f"Completed:{output_uri}" if success else f"Failed:{error_message}")
         # notify listeners
         update = common_pb.ProgressUpdate(
             task_id=task_id,
