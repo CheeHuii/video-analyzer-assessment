@@ -18,7 +18,7 @@ from backend.protos import chat_pb2
 from backend.protos import chat_pb2_grpc
 
 
-async def stream_chat(addr: str, conversation_id: str, sender: str, text: str):
+async def stream_chat(addr: str, conversation_id: str, sender: str, text: str, attachments: list[str] | None = None):
     """
     Connect to gRPC ChatService and stream responses.
     Each chunk is printed as a JSON line to stdout.
@@ -33,6 +33,10 @@ async def stream_chat(addr: str, conversation_id: str, sender: str, text: str):
         text=text,
         conversation_id=conversation_id
     )
+    # Include attachments if provided
+    if attachments:
+        for a in attachments:
+            message.attachments.append(a)
     
     request = chat_pb2.SendMessageRequest(
         conversation_id=conversation_id,
@@ -85,11 +89,12 @@ def main():
     parser.add_argument("--conversation", required=True, help="Conversation ID")
     parser.add_argument("--sender", default="user", help="Sender name")
     parser.add_argument("--text", required=True, help="Message text")
+    parser.add_argument("--attachment", action="append", default=None, help="Attachment path (repeatable)")
     
     args = parser.parse_args()
     
     # Run async function
-    asyncio.run(stream_chat(args.addr, args.conversation, args.sender, args.text))
+    asyncio.run(stream_chat(args.addr, args.conversation, args.sender, args.text, args.attachment))
 
 
 if __name__ == "__main__":

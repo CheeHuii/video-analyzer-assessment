@@ -93,6 +93,30 @@ Now you can:
 - Request object detection
 - Generate PDF/PowerPoint summaries
 
+## How to trigger each agent
+
+After uploading a video (required), type one of these prompts in chat:
+
+- Transcription:
+        - "transcribe"
+        - "what was said"
+        - "get the transcript"
+
+- Object detection (Vision):
+        - "detect objects"
+        - "find objects"
+        - "is there any table?"
+        - "what do you see"
+
+- Summaries and reports (Generation):
+        - "summarize the video"
+        - "create a pdf report"
+        - "make a ppt/pptx slide deck"
+
+Notes:
+- If you haven't uploaded a video yet, the assistant will ask you to upload one first.
+- The latest uploaded video is used when you don't attach a path.
+
 ## Testing Backend Directly
 
 ### Test History Retrieval
@@ -142,6 +166,9 @@ Run scripts from repository root, not from subdirectories.
 
 ### "Connection refused" errors
 Make sure the backend server is running before starting the frontend.
+
+### "It used the wrong video"
+Each upload is saved into its own folder under `data/videos/<video_id>/raw.mp4`. The assistant uses the most recent upload by default. If you want to switch artifacts, use the dropdown in the Artifacts panel.
 
 ### "Cannot find python"
 Ensure Python 3.8+ is in your PATH. On Windows, try `python3` instead of `python`.

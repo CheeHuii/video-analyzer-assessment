@@ -9,6 +9,7 @@ import time
 import uuid
 import json
 import os
+import hashlib
 import asyncio
 import grpc
 from concurrent import futures
@@ -36,9 +37,17 @@ class EnhancedChatServicer(chat_pb2_grpc.ChatServiceServicer):
         self.mcp_addr = mcp_addr
         self.mcp_channel = None
         self.mcp_stub = None
-        # Optional: Load LLM for query understanding
+        # Optional: RAG/LLM for general Q&A over video artifacts
         self.llm = None
+        self.rag = None
         self._init_mcp_connection()
+        self._init_rag()
+        # If RAG is initialized, reuse its LLM for general fallbacks
+        try:
+            if self.rag is not None and getattr(self.rag, 'llm', None) is not None:
+                self.llm = self.rag.llm
+        except Exception:
+            pass
     
     def _init_mcp_connection(self):
         """Initialize connection to MCP server."""
@@ -48,8 +57,74 @@ class EnhancedChatServicer(chat_pb2_grpc.ChatServiceServicer):
             print(f"Connected to MCP server at {self.mcp_addr}")
         except Exception as e:
             print(f"Failed to connect to MCP server: {e}")
+
+    def _init_rag(self):
+        """Initialize RAG stack if local models are available."""
+        try:
+            from backend.llm.rag import RAG
+            # try first model dir, then fallback
+            base = Path("backend/models/llm")
+            candidates = [base/"hf_llm", base/"hf_llm2"]
+            model_dir = None
+            for c in candidates:
+                if c.exists():
+                    model_dir = str(c)
+                    break
+            if model_dir is None:
+                print("[RAG] No local LLM model directory found; RAG disabled")
+                return
+            self.rag = RAG(model_dir_for_llm=model_dir)
+            print(f"[RAG] initialized with model {model_dir}")
+        except Exception as e:
+            print(f"[RAG] init failed: {e}")
     
-    def _parse_user_intent(self, text: str, attachments: list) -> dict:
+    def _get_latest_video_path(self, conversation_id: str) -> Optional[str]:
+        """Find the most recent video path from history or filesystem fallback."""
+        try:
+            rows = get_history(conversation_id, limit=100, offset=0)
+        except Exception:
+            rows = []
+        # iterate from newest to oldest
+        for r in reversed(rows):
+            # attachments stored as list of strings
+            for a in r.get("attachments", []) or []:
+                if not isinstance(a, str):
+                    continue
+                a_clean = a.strip().strip('"')
+                if not (a_clean.endswith('.mp4') or a_clean.endswith('.avi') or a_clean.endswith('.mov')):
+                    continue
+                # must exist and not be a loose file directly under data/videos root
+                p = Path(a_clean)
+                if not p.exists():
+                    continue
+                try:
+                    # skip files that live directly under .../data/videos (prefer subfolder/raw.mp4)
+                    if p.parent.name == 'videos' and p.parent.parent.name == 'data':
+                        continue
+                except Exception:
+                    pass
+                return a_clean
+        # Fallback to filesystem if not found in history
+        try:
+            base = Path("data") / "videos"
+            if not base.exists():
+                return None
+            # Only consider raw.mp4 inside subfolders; ignore loose files in videos root
+            candidates = []
+            for sub in base.iterdir():
+                if sub.is_dir():
+                    rp = sub / "raw.mp4"
+                    if rp.exists():
+                        candidates.append(rp)
+            if not candidates:
+                return None
+            # pick most recent by mtime
+            latest = max(candidates, key=lambda p: p.stat().st_mtime)
+            return str(latest)
+        except Exception:
+            return None
+
+    def _parse_user_intent(self, text: str, attachments: list, conversation_id: Optional[str] = None) -> dict:
         """
         Parse user message to determine intent and required agent.
         Returns: {
@@ -70,20 +145,26 @@ class EnhancedChatServicer(chat_pb2_grpc.ChatServiceServicer):
         
         # Determine intent based on keywords
         if any(keyword in text_lower for keyword in ['transcribe', 'transcript', 'what was said', 'speech']):
+            if not video_attachment and conversation_id:
+                video_attachment = self._get_latest_video_path(conversation_id)
             return {
                 "intent": "transcribe",
                 "agent_type": common_pb.AgentType.AGENT_TRANSCRIPTION,
                 "video_path": video_attachment,
                 "needs_processing": True
             }
-        elif any(keyword in text_lower for keyword in ['detect', 'objects', 'vision', 'what do you see', 'analyze frame', 'visual']):
+        elif any(keyword in text_lower for keyword in ['detect', 'object', 'objects', 'vision', 'what do you see', 'analyze frame', 'visual', 'table']):
+            if not video_attachment and conversation_id:
+                video_attachment = self._get_latest_video_path(conversation_id)
             return {
                 "intent": "analyze_video",
                 "agent_type": common_pb.AgentType.AGENT_VISION,
                 "video_path": video_attachment,
                 "needs_processing": True
             }
-        elif any(keyword in text_lower for keyword in ['summary', 'pdf', 'powerpoint', 'pptx', 'slides', 'report']):
+        elif any(keyword in text_lower for keyword in ['summary', 'summarize', 'summarise', 'pdf', 'powerpoint', 'ppt', 'pptx', 'slides', 'report']):
+            if not video_attachment and conversation_id:
+                video_attachment = self._get_latest_video_path(conversation_id)
             return {
                 "intent": "generate_summary",
                 "agent_type": common_pb.AgentType.AGENT_GENERATION,
@@ -116,14 +197,51 @@ class EnhancedChatServicer(chat_pb2_grpc.ChatServiceServicer):
             "status": str
         }
         """
-        # Ingest video (extract audio, frames, metadata)
-        print(f"Ingesting video: {video_path}")
-        meta = ingest_video(video_path, sample_ms=500)
-        video_id = meta["video_id"]
-        video_dir = Path("data") / "videos" / video_id
-        meta_path = video_dir / "meta.json"
+        def _stable_id_for_path(p: str) -> str:
+            try:
+                st = os.stat(p)
+                key = f"{os.path.basename(p)}|{st.st_size}|{int(st.st_mtime_ns)}".encode("utf-8", errors="ignore")
+            except Exception:
+                key = p.encode("utf-8", errors="ignore")
+            return hashlib.sha1(key).hexdigest()[:8]
+
+        # If path is already inside data/videos/<id>/..., reuse that id
+        abs_path = str(Path(video_path).resolve())
+        base_videos = str((Path("data") / "videos").resolve())
+        reuse_id = None
+        if abs_path.startswith(base_videos):
+            # find the immediate folder after videos
+            try:
+                parts = Path(abs_path).parts
+                vids_parts = Path(base_videos).parts
+                if len(parts) > len(vids_parts):
+                    candidate_id = parts[len(vids_parts)]
+                    candidate_dir = Path(base_videos) / candidate_id
+                    if (candidate_dir / "meta.json").exists():
+                        reuse_id = candidate_id
+            except Exception:
+                pass
+
+        if reuse_id:
+            video_id = reuse_id
+            video_dir = Path("data") / "videos" / video_id
+            meta_path = video_dir / "meta.json"
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+        else:
+            # compute stable id and ingest only if needed
+            video_id = _stable_id_for_path(abs_path)
+            video_dir = Path("data") / "videos" / video_id
+            meta_path = video_dir / "meta.json"
+            if meta_path.exists():
+                with open(meta_path, "r", encoding="utf-8") as f:
+                    meta = json.load(f)
+            else:
+                print(f"Ingesting video: {video_path} -> id {video_id}")
+                meta = ingest_video(abs_path, video_id=video_id, sample_ms=500)
         
         task_ids = []
+        task_map = {}  # task_id -> agent_type_name
         
         if agent_type is None:
             # Full analysis: submit to all agents
@@ -138,14 +256,25 @@ class EnhancedChatServicer(chat_pb2_grpc.ChatServiceServicer):
         # Submit tasks to each agent
         for a_type in agent_types:
             task_id = str(uuid.uuid4())
+            # Vision agent expects a directory (video_dir) to find frames;
+            # others can consume meta.json
+            if a_type == common_pb.AgentType.AGENT_VISION:
+                input_uri = str(video_dir)
+                mime = "inode/directory"
+                size_b = 0
+            else:
+                input_uri = str(meta_path)
+                mime = "application/json"
+                size_b = int(os.path.getsize(str(meta_path)))
+
             file_ref = common_pb.FileRef(
-                uri=str(meta_path),
-                mime="application/json",
-                size_bytes=os.path.getsize(meta_path)
+                uri=input_uri,
+                mime=mime,
+                size_bytes=size_b
             )
             task_req = common_pb.TaskRequest(
                 task_id=task_id,
-                agent_type_hint=a_type,
+                agent_type_hint=common_pb.AgentType.Name(a_type),
                 input=file_ref
             )
             
@@ -153,6 +282,7 @@ class EnhancedChatServicer(chat_pb2_grpc.ChatServiceServicer):
                 response = self.mcp_stub.AssignTask(task_req)
                 if response.accepted:
                     task_ids.append(task_id)
+                    task_map[task_id] = common_pb.AgentType.Name(a_type)
                     print(f"Task {task_id} assigned to {response.assigned_agent_id}")
                 else:
                     print(f"Task {task_id} rejected: {response.message}")
@@ -162,7 +292,8 @@ class EnhancedChatServicer(chat_pb2_grpc.ChatServiceServicer):
         return {
             "video_id": video_id,
             "task_ids": task_ids,
-            "status": "processing" if task_ids else "failed"
+            "status": "processing" if task_ids else "failed",
+            "task_map": task_map
         }
     
     def SendMessage(self, request, context):
@@ -241,7 +372,7 @@ class EnhancedChatServicer(chat_pb2_grpc.ChatServiceServicer):
         store_message(user_stored)
         
         # Parse user intent
-        intent_info = self._parse_user_intent(user_text, attachments)
+        intent_info = self._parse_user_intent(user_text, attachments, conv_id)
         
         if intent_info["needs_processing"] and intent_info["video_path"]:
             # Process video and submit to agents
@@ -251,22 +382,66 @@ class EnhancedChatServicer(chat_pb2_grpc.ChatServiceServicer):
             )
             
             try:
+                # Normalize path to plain string without surrounding quotes
+                vpath = intent_info["video_path"]
+                if not isinstance(vpath, str):
+                    vpath = str(vpath)
+                vpath = vpath.strip().strip('"')
+                if not os.path.exists(vpath):
+                    # try to resolve to latest known good raw.mp4
+                    alt = self._get_latest_video_path(conv_id)
+                    if alt and os.path.exists(alt):
+                        vpath = alt
+                    else:
+                        raise FileNotFoundError(f"Video not found: {vpath}")
+
                 result = self._process_video_and_submit_task(
-                    intent_info["video_path"],
+                    vpath,
                     intent_info["agent_type"]
                 )
                 
                 if result["status"] == "processing":
-                    response_text = f"Video analysis started (ID: {result['video_id']}). "
-                    response_text += f"Processing {len(result['task_ids'])} tasks. "
-                    response_text += "Results will be available shortly."
-                    
-                    # Stream the response
-                    chunk_size = 40
+                    response_text = f"Video analysis started (ID: {result['video_id']}). Processing {len(result['task_ids'])} tasks."
+                    # initial message
+                    chunk_size = 60
                     for i in range(0, len(response_text), chunk_size):
                         chunk = response_text[i:i+chunk_size]
                         yield chat_pb2.StreamResponse(partial_text=chunk, done=False)
-                        time.sleep(0.05)
+                        time.sleep(0.03)
+
+                    # Stream progress per task and capture completions
+                    completed_outputs = []
+                    for tid in result["task_ids"]:
+                        # announce agent type for visual cue
+                        aname = result.get("task_map", {}).get(tid, "AGENT")
+                        try:
+                            yield chat_pb2.StreamResponse(partial_text=f"\n{aname}: started", done=False)
+                        except Exception:
+                            pass
+                        try:
+                            req = mgr_pb2.TaskProgressRequest(task_id=tid)
+                            for upd in self.mcp_stub.StreamProgress(req):
+                                # message may contain "Completed:<path>" or "Failed:<error>"
+                                msg = upd.message or ""
+                                if msg.startswith("Completed:"):
+                                    out_path = msg.split(":", 1)[1]
+                                    completed_outputs.append(out_path)
+                                    yield chat_pb2.StreamResponse(partial_text=f"\n{aname}: completed.", done=False)
+                                    break
+                                elif msg.startswith("Failed:"):
+                                    err = msg.split(":", 1)[1]
+                                    yield chat_pb2.StreamResponse(partial_text=f"\n{aname}: failed: {err}", done=False)
+                                    break
+                                else:
+                                    # progress update
+                                    yield chat_pb2.StreamResponse(partial_text=f"\n{aname}: {upd.percent}%", done=False)
+                        except Exception as e:
+                            yield chat_pb2.StreamResponse(partial_text=f"\n{aname}: progress stream error: {e}", done=False)
+
+                    if completed_outputs:
+                        # Summarize outputs location back to user
+                        summary = "\nOutputs:\n" + "\n".join(f"- {p}" for p in completed_outputs)
+                        yield chat_pb2.StreamResponse(partial_text=summary, done=False)
                 else:
                     response_text = "Failed to process video. Please check the logs."
                     yield chat_pb2.StreamResponse(partial_text=response_text, done=False)
@@ -275,9 +450,28 @@ class EnhancedChatServicer(chat_pb2_grpc.ChatServiceServicer):
                 yield chat_pb2.StreamResponse(partial_text=error_text, done=False)
         else:
             # Simple chat response (could integrate LLM here)
-            response_text = f"Received your message: {user_text[:100]}"
-            if not intent_info["needs_processing"]:
-                response_text = "I can help you analyze videos! Upload a video and ask me to transcribe, detect objects, or generate a summary."
+            if intent_info.get("needs_processing") and not intent_info.get("video_path"):
+                response_text = "I found no recent video to process. Please upload a video or reference its path."
+            else:
+                # If RAG is available and we have a recent video, answer using RAG
+                # Require a video to be uploaded before chat
+                vpath = intent_info.get("video_path") or self._get_latest_video_path(conv_id)
+                if not vpath or not os.path.exists(vpath):
+                    response_text = "Please upload a video first, then ask me to transcribe, detect objects, or summarize it."
+                else:
+                    response_text = ""
+                    used_rag = False
+                    try:
+                        if self.rag is not None:
+                            vdir = Path(vpath).parent if Path(vpath).is_file() else Path(vpath)
+                            ans = self.rag.answer(str(vdir), user_text)
+                            response_text = ans.get("answer") or ""
+                            used_rag = True
+                    except Exception as e:
+                        print(f"[RAG] answer failed: {e}")
+                        used_rag = False
+                    if not used_rag:
+                        response_text = response_text or "I can help you analyze videos! Try: 'transcribe', 'summarize to pdf/ppt', or 'detect objects'."
             
             chunk_size = 40
             for i in range(0, len(response_text), chunk_size):
@@ -286,6 +480,15 @@ class EnhancedChatServicer(chat_pb2_grpc.ChatServiceServicer):
                 time.sleep(0.05)
         
         # Store agent message
+        # Include video_id in metadata if processing started
+        meta_copy = dict(intent_info)
+        try:
+            # attempt to include last computed video_id when we processed
+            if 'result' in locals() and isinstance(result, dict) and result.get('video_id'):
+                meta_copy['video_id'] = result['video_id']
+        except Exception:
+            pass
+
         agent_msg = {
             "id": uuid.uuid4().hex,
             "conversation_id": conv_id,
@@ -295,7 +498,7 @@ class EnhancedChatServicer(chat_pb2_grpc.ChatServiceServicer):
             "confidence": 0.8,
             "needs_clarification": False,
             "attachments": [],
-            "metadata_json": intent_info
+            "metadata_json": meta_copy
         }
         store_message(agent_msg)
         

@@ -126,7 +126,7 @@ class RAG:
         retrieved = self.retrieve(query, top_k=8)
         prompt = self.compose_prompt(query, retrieved)
         out = self.llm.generate(prompt, max_new_tokens=256)
-        return out["text"]
+        return self._clean_generation(out["text"]) or out["text"].strip()
 
     def answer(self, video_dir: str, question: str, top_k: int = 6) -> Dict[str,Any]:
         # quick rule: if question about graphs, check graphs.json first
@@ -154,4 +154,33 @@ class RAG:
             confidence = max(0.0, min(1.0, confidence))
         else:
             confidence = 0.2
-        return {"answer": out["text"].strip(), "confidence": confidence, "retrieved": retrieved}
+        cleaned = self._clean_generation(out["text"]) or out["text"].strip()
+        return {"answer": cleaned, "confidence": confidence, "retrieved": retrieved}
+
+    def _clean_generation(self, text: str) -> str:
+        """Remove repetitive chat turns and trim at first occurrence of a user prompt marker.
+        Heuristics:
+        - Truncate at first 'User:' if present
+        - Drop leading 'Assistant:' label(s)
+        - Collapse duplicate whitespace
+        """
+        if not text:
+            return text
+        t = text.strip()
+        # cut at first User: marker
+        lower = t.lower()
+        pos_user = lower.find("user:")
+        if pos_user != -1:
+            t = t[:pos_user].strip()
+        # remove leading Assistant: labels
+        while t.startswith("Assistant:") or t.startswith("assistant:"):
+            t = t.split(":", 1)[1].lstrip()
+        # also remove any trailing repeated Assistant: segments
+        # keep only first segment before another Assistant:
+        if "Assistant:" in t:
+            t = t.split("Assistant:")[0].strip()
+        if "assistant:" in t:
+            t = t.split("assistant:")[0].strip()
+        # collapse excessive spaces
+        t = " ".join(t.split())
+        return t

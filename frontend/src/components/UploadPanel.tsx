@@ -1,12 +1,12 @@
 // src/components/UploadPanel.tsx
 import React, { useState } from "react";
-import { saveUploadedFile, sendMessageAndStream } from "../grpcClient";
+import { saveUploadedFile } from "../grpcClient";
 
 type Props = {
   convId: string;
 };
 
-export default function UploadPanel({ convId }: Props) {
+export default function UploadPanel({ convId: _ }: Props) {
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
 
@@ -30,15 +30,10 @@ export default function UploadPanel({ convId }: Props) {
     setProgress(30);
 
     try {
-      const resp = await saveUploadedFile(b64, file.name);
-      setProgress(80);
-      // instruct backend to process file via chat: e.g. "Transcribe <path>"
-      const text = `Analyze this video: ${resp.path}`;
-      // stream responses directly to chat for immediate feedback
-      await sendMessageAndStream(convId, "user", text, chunk => {
-        // frontend will get stream events via grpcClient's onChunk
-        // but here we don't pass handler; instead ChatWindow also listens to events globally
-      });
+  await saveUploadedFile(b64, file.name);
+  setProgress(90);
+  // Do not auto-start analysis; user will prompt (e.g., "transcribe" / "summarize").
+  // We intentionally avoid sending a chat message here to prevent auto-processing.
       setProgress(100);
     } catch (err) {
       console.error(err);

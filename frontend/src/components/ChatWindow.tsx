@@ -24,19 +24,43 @@ export default function ChatWindow({ convId, initialHistory }: Props) {
         // payload shape depends on your proto -> prost mapping.
         // Here we handle partial_text and message final.
         if (payload.partial_text) {
-          // append partial to a "temp" agent message or update last partial
+          // Merge partial chunk into a single in-progress agent message with simple de-dup overlap handling
           setMessages(prev => {
-            const last = prev[prev.length - 1];
+            const next = [...prev];
+            const last = next[next.length - 1];
+            const chunk: string = String(payload.partial_text);
+
+            function mergeWithOverlap(base: string, addition: string) {
+              // Avoid duplicating overlapping tails/heads between base and addition
+              const maxOverlap = Math.min(base.length, addition.length, 50);
+              for (let k = maxOverlap; k > 0; k--) {
+                if (base.slice(-k) === addition.slice(0, k)) {
+                  return base + addition.slice(k);
+                }
+              }
+              return base + addition;
+            }
+
             if (last && last.__partial_agent) {
-              last.text = (last.text || "") + payload.partial_text;
-              return [...prev.slice(0, -1), { ...last }];
+              const merged = mergeWithOverlap(last.text || "", chunk);
+              next[next.length - 1] = { ...last, text: merged };
+              return next;
             } else {
-              return [...prev, { id: "partial-"+Date.now(), sender: "agent", text: payload.partial_text, __partial_agent: true }];
+              next.push({ id: "partial-"+Date.now(), sender: "agent", text: chunk, __partial_agent: true });
+              return next;
             }
           });
         } else if (payload.message) {
-          // final message object
-          setMessages(prev => [...prev, payload.message]);
+          // final message object: replace the in-progress partial if present, else append
+          setMessages(prev => {
+            const next = [...prev];
+            const last = next[next.length - 1];
+            if (last && last.__partial_agent) {
+              next[next.length - 1] = payload.message;
+              return next;
+            }
+            return [...next, payload.message];
+          });
         }
       } catch (err) {
         console.error("stream parsing", err);

@@ -29,6 +29,8 @@ pub fn run() {
             commands::send_message_and_stream,
             commands::get_history,
             commands::list_attachments,
+            commands::list_video_artifacts,
+            commands::list_video_ids,
             commands::open_path
         ])
         .run(tauri::generate_context!())
