@@ -2,15 +2,17 @@
 
 ## Working according to requirements:
 Allow user to select and upload local .mp4 files
+
 Natural language interaction to process and query video content.
 -   Transcribe the video
 -   Create powerpoint/pdf with the key points of video
 -   Object are shown in the video (partially)
 -   Are there any graph in the video? If yes, describe them. (partially)
+
 Maintain persistent chat history, accessible for reading even after app restart (artifacts)
 
 ## What could be achieved with more time:
-### Summarizing discussion so far and generate a PDF.
+-   Summarizing discussion so far and generate a PDF.
 -   There is no valid agent with this purpose right now, however, SQLite db, and history of artifact metadata is available, able to complete with more time.
 Human-in-the-loop claritication:
 -   Does not have this feature for now, but also, confidence level is there, completing it should be possible too.
