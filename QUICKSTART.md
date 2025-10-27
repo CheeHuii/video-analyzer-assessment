@@ -78,7 +78,7 @@ The desktop app will launch. You can now:
 After uploading a video (required), type one of these prompts in chat:
 
 - Transcription:
-        - "transcribe"
+        -"transcribe"
         - "get the transcript"
 
 - Object detection (Vision):
