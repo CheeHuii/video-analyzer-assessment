@@ -7,7 +7,6 @@ type Props = {
 };
 
 export default function HistoryPanel({ convId, setConvId }: Props) {
-  // For demo we keep simple static convs; ideally fetch a list from backend
   const convs = [{ id: "default", title: "Main" }];
 
   return (

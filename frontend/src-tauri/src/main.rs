@@ -2,12 +2,6 @@ use tauri::Manager;
 
 mod commands;
 
-// Commenting out proto generation for now - we'll use Python for gRPC client
-// Uncomment when you need Rust gRPC client functionality
-// pub mod chat {
-//     tonic::include_proto!("chat");
-// }
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()

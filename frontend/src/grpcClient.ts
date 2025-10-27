@@ -37,7 +37,6 @@ export async function sendMessageAndStream(
   // call Tauri command to start streaming; it will emit events
   await invoke('send_message_and_stream', { conversationId, sender, text, attachments });
 
-  // stop listening once done (optionally frontend can listen for a 'stream_done' event)
   if (unlisten) {
     unlisten();
   }

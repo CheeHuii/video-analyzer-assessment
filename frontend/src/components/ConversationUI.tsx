@@ -83,7 +83,6 @@ export default function ConversationUI({
     }
   }
 
-  // example fallback bot reply (simulate streaming/typing)
   async function fakeBotReply(replyToId: string, txt: string) {
     const botId = "bot-" + Date.now();
     const botMessage: Message = {

@@ -21,7 +21,6 @@ from backend.protos import agent_manager_pb2 as mgr_pb2
 from backend.protos import agent_manager_pb2_grpc as mgr_grpc
 from backend.protos import common_pb2 as common_pb
 from backend.db import init_db, store_message, get_history, now_ms
-from backend.attachments_store import save_attachment_bytes
 from backend.ingest import ingest_video
 
 # Initialize DB
@@ -37,7 +36,6 @@ class EnhancedChatServicer(chat_pb2_grpc.ChatServiceServicer):
         self.mcp_addr = mcp_addr
         self.mcp_channel = None
         self.mcp_stub = None
-        # Optional: RAG/LLM for general Q&A over video artifacts
         self.llm = None
         self.rag = None
         self._init_mcp_connection()

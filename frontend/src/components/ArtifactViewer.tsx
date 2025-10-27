@@ -39,10 +39,8 @@ export default function ArtifactViewer({ videoId }: { videoId?: string }) {
         setVideoIds([]);
       }
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // when external videoId prop changes (e.g., new video finished), refresh list and select it
   useEffect(() => {
     if (videoId) {
       (async () => {
@@ -61,7 +59,6 @@ export default function ArtifactViewer({ videoId }: { videoId?: string }) {
   useEffect(() => {
     const idToUse = selectedId || videoId;
     load(idToUse);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId, selectedId]);
 
   return (
