@@ -8,6 +8,7 @@ dist/
 build/
 data/videos
 backend/models
+data/chat_history.db
 
 .DS_Store
 Thumbs.db
