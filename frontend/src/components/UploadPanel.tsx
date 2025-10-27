@@ -32,8 +32,6 @@ export default function UploadPanel({ convId: _ }: Props) {
     try {
   await saveUploadedFile(b64, file.name);
   setProgress(90);
-  // Do not auto-start analysis; user will prompt (e.g., "transcribe" / "summarize").
-  // We intentionally avoid sending a chat message here to prevent auto-processing.
       setProgress(100);
     } catch (err) {
       console.error(err);

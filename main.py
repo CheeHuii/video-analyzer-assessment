@@ -14,7 +14,6 @@ import signal
 import sys
 from pathlib import Path
 
-# Ensure backend is in path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from backend.mcp_server import serve_async as serve_mcp
@@ -29,10 +28,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("main")
 
-
-# Global tasks for cleanup
 tasks = []
-
 
 async def start_agents(mcp_addr: str = "localhost:50052"):
     """
