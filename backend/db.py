@@ -6,7 +6,7 @@ import time
 import uuid
 from dataclasses import dataclass
 
-DB_PATH = "data/chat_history.db"  # commit .gitignore or allow example
+DB_PATH = "data/chat_history.db"
 
 def _conn():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)

@@ -17,19 +17,6 @@ def check_python_version():
         print(f"✗ Python {version.major}.{version.minor}.{version.micro} (Need 3.8+)")
         return False
 
-def check_python_package(package_name, display_name=None):
-    """Check if a Python package is installed."""
-    if display_name is None:
-        display_name = package_name
-    
-    spec = importlib.util.find_spec(package_name)
-    if spec is not None:
-        print(f"✓ {display_name}")
-        return True
-    else:
-        print(f"✗ {display_name} (install with: pip install {package_name})")
-        return False
-
 def check_command(cmd, name=None):
     """Check if a command-line tool is available."""
     if name is None:
@@ -63,23 +50,7 @@ def main():
     all_ok &= check_command("npm")
     all_ok &= check_command("cargo", "Rust")
     all_ok &= check_command("ffmpeg", "FFmpeg")
-    
-    # Python packages - minimal
-    print("\n[Minimal Python Packages - Required for Basic Chat]")
-    all_ok &= check_python_package("grpc", "grpcio")
-    all_ok &= check_python_package("google.protobuf", "protobuf")
-    
-    # Python packages - full ML
-    print("\n[Full ML Python Packages - Optional for AI Features]")
-    ml_ok = True
-    ml_ok &= check_python_package("faster_whisper", "faster-whisper")
-    ml_ok &= check_python_package("torch", "PyTorch")
-    ml_ok &= check_python_package("transformers", "Transformers")
-    ml_ok &= check_python_package("cv2", "OpenCV")
-    ml_ok &= check_python_package("reportlab", "ReportLab")
-    ml_ok &= check_python_package("pptx", "python-pptx")
-    ml_ok &= check_python_package("openvino", "OpenVINO")
-    
+
     # Check directories
     print("\n[Directory Structure]")
     import os
@@ -114,14 +85,7 @@ def main():
         print("✗ Some core requirements are missing.")
         print("\nInstall missing dependencies:")
         print("  pip install grpcio grpcio-tools protobuf")
-    
-    if not ml_ok:
-        print("\n⚠ ML packages are not fully installed.")
-        print("  For full AI features, run: pip install -r requirements.txt")
-    else:
-        print("\n✓ All ML packages installed!")
-        print("  You can run the full system: python main.py")
-    
+
     print("=" * 60)
     
     return all_ok
